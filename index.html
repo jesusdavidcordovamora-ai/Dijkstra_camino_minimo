@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dijkstra paso a paso · Grafo Dirigido Acíclico</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Menlo', 'Consolas', 'monospace']
+                    },
+                    colors: {
+                        brand: {
+                            lightBg: '#E8EDF0',
+                            lightCard: '#F5F8F9',
+                            darkBg: '#0B1419',
+                            darkCard: '#111D24',
+                            accent: '#0B7A75',
+                            accentDark: '#3CC9BF',
+                            cur: '#E08700',
+                            org: '#2F7BD8',
+                            dst: '#E0553F',
+                            vis: '#2E9E5B',
+                            path: '#D1242F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome para iconos de control -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Deshabilitar selección nemotécnica en canvas */
+        canvas { touch-action: none; user-select: none; }
+        /* Scrollbar personalizado para paneles y logs */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.6); }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-[#0B1419] text-slate-800 dark:text-slate-100 font-sans h-full flex flex-col transition-colors duration-200">
+
+    <!-- Header Principal -->
+    <header class="bg-white dark:bg-[#111D24] border-b border-slate-200 dark:border-slate-800 px-6 py-4 shadow-sm flex-shrink-0 flex justify-between items-center">
+        <div>
+            <span class="text-xs font-mono font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Camino Mínimo · Grafo Dirigido Acíclico (DAG)</span>
+            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Dijkstra paso a paso</h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button id="themeToggleBtn" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm font-medium">
+                <i id="themeIcon" class="fa-solid fa-moon"></i>
+                <span id="themeText">Modo Oscuro</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto w-full flex flex-col">
+        
+        <!-- Panel de Configuración -->
+        <section class="bg-white dark:bg-[#111D24] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex-shrink-0">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                
+                <!-- Num Vértices -->
+                <div>
+                    <label class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                        Vértices: <span id="lblNodes" class="text-slate-900 dark:text-white">9</span>
+                    </label>
+                    <input type="range" id="scaleNodes" min="7" max="16" value="9" class="w-full accent-teal-600 dark:accent-teal-400 cursor-pointer">
+                </div>
+
+                <!-- Modo Grafo -->
+                <div>
+                    <label class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Modo de Grafo</label>
+                    <div class="flex items-center space-x-4 py-1">
+                        <label class="inline-flex items-center cursor-pointer text-sm font-medium">
+                            <input type="radio" name="mode" value="random" checked class="text-teal-600 focus:ring-teal-500 dark:bg-slate-900">
+                            <span class="ml-1.5">Aleatorio</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer text-sm font-medium">
+                            <input type="radio" name="mode" value="manual" class="text-teal-600 focus:ring-teal-500 dark:bg-slate-900">
+                            <span class="ml-1.5">Manual</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Origen -->
+                <div>
+                    <label for="cbSrc" class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Origen</label>
+                    <select id="cbSrc" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                </div>
+
+                <!-- Destino -->
+                <div>
+                    <label for="cbDst" class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Destino</label>
+                    <select id="cbDst" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                </div>
+
+                <!-- Acciones Aleatorio -->
+                <div id="randomControls" class="flex flex-col space-y-1.5">
+                    <button id="btnRegen" class="w-full bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold py-2 px-3 rounded-lg transition shadow-sm">
+                        Grafo aleatorio nuevo
+                    </button>
+                    <label class="inline-flex items-center cursor-pointer text-xs text-slate-600 dark:text-slate-400">
+                        <input type="checkbox" id="chkTies" class="rounded text-teal-600 focus:ring-teal-500 dark:bg-slate-900">
+                        <span class="ml-1.5">Más empates (pesos 1–5)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Panel de Controles Manuales -->
+            <div id="manualPanel" class="hidden mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 transition-all">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Desde</label>
+                        <select id="cbFrom" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 w-20"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Hacia</label>
+                        <select id="cbTo" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 w-20"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Peso</label>
+                        <input type="number" id="spW" min="1" max="99" value="5" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 w-20">
+                    </div>
+                    <button id="btnAddEdge" class="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg transition">
+                        Agregar conexión
+                    </button>
+                    <button id="btnClearEdges" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs py-1.5 px-3 rounded-lg transition">
+                        Vaciar grafo
+                    </button>
+                </div>
+                
+                <p id="msgManual" class="text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                    Las conexiones que formen un ciclo se rechazan. Si repites una, se actualiza su peso.
+                </p>
+
+                <div class="mt-3 flex items-center space-x-3">
+                    <select id="lbEdges" size="3" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-xs text-slate-800 dark:text-slate-200 w-64 focus:outline-none"></select>
+                    <div class="flex flex-col space-y-1">
+                        <button id="btnRemoveEdge" class="bg-rose-100 dark:bg-rose-900/40 hover:bg-rose-200 text-rose-700 dark:text-rose-300 font-bold text-xs py-1 px-3 rounded transition text-left">
+                            Quitar seleccionada
+                        </button>
+                        <span class="text-[11px] text-slate-400">Doble clic en la lista para quitar.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Principal Grid: Canvas + Sidebar -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[520px]">
+            
+            <!-- Columna Izquierda: Canvas + Controls + Caminos -->
+            <div class="lg:col-span-8 flex flex-col space-y-4">
+                
+                <!-- Tarjeta Canvas -->
+                <div class="bg-white dark:bg-[#111D24] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex-1 flex flex-col relative">
+                    <div class="flex justify-between items-center mb-2 flex-shrink-0">
+                        <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase">Grafo</span>
+                        <span id="hintLbl" class="text-xs text-slate-500 dark:text-slate-400 italic">
+                            Clic en un vértice para fijar origen/destino. Arrástralo para acomodarlo.
+                        </span>
+                    </div>
+
+                    <!-- Canvas -->
+                    <div class="flex-1 w-full relative min-h-[300px] bg-slate-50 dark:bg-[#0D171D] rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800/80">
+                        <canvas id="graphCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    </div>
+
+                    <!-- Leyenda del Canvas -->
+                    <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs flex-shrink-0 border-t border-slate-100 dark:border-slate-800/60 pt-2">
+                        <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-[#2F7BD8] inline-block"></span><span>Origen</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-[#E0553F] inline-block"></span><span>Destino</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-[#E08700] inline-block"></span><span>Vértice actual</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-[#2E9E5B] inline-block"></span><span>Visitado</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-[#8A97A0] inline-block"></span><span>Pendiente</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-4 h-1 bg-[#E08700] rounded inline-block"></span><span>Arista en revisión</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-4 h-1 bg-[#0B7A75] dark:bg-[#3CC9BF] rounded inline-block"></span><span>Mejor ruta conocida</span></div>
+                        <div class="flex items-center space-x-1.5"><span class="w-4 h-1 bg-[#D1242F] rounded inline-block"></span><span>Camino mínimo</span></div>
+                    </div>
+
+                    <!-- Reproductor -->
+                    <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex-shrink-0 space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="scrubBar" min="0" max="1" value="0" class="flex-1 accent-teal-600 dark:accent-teal-400 cursor-pointer">
+                            <span id="stepCounter" class="font-mono text-xs text-slate-500 dark:text-slate-400 min-w-[90px] text-right">Paso 1 de 1</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                <button id="btnReset" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-md transition disabled:opacity-40">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i>Reiniciar
+                                </button>
+                                <button id="btnPrev" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-md transition disabled:opacity-40">
+                                    <i class="fa-solid fa-chevron-left mr-1"></i>Anterior
+                                </button>
+                                <button id="btnPlay" class="px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold rounded-md transition min-w-[95px]">
+                                    <i class="fa-solid fa-play mr-1"></i>Reproducir
+                                </button>
+                                <button id="btnNext" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-md transition disabled:opacity-40">
+                                    Siguiente<i class="fa-solid fa-chevron-right ml-1"></i>
+                                </button>
+                                <button id="btnNextVertex" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-md transition disabled:opacity-40">
+                                    Siguiente vértice
+                                </button>
+                                <button id="btnEnd" class="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold rounded-md transition disabled:opacity-40">
+                                    Ir al resultado
+                                </button>
+                            </div>
+
+                            <div class="flex items-center space-x-2">
+                                <label for="cbSpeed" class="text-xs text-slate-500 font-medium">Velocidad:</label>
+                                <select id="cbSpeed" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-medium focus:outline-none">
+                                    <option value="Lenta">Lenta</option>
+                                    <option value="Normal" selected>Normal</option>
+                                    <option value="Rápida">Rápida</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta Caminos Mínimos -->
+                <div class="bg-white dark:bg-[#111D24] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex-shrink-0">
+                    <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase block mb-2">Caminos Mínimos</span>
+                    
+                    <div id="resWait" class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 py-1">
+                        <span>Aparecen cuando el algoritmo termina.</span>
+                        <button id="btnGoResultNow" class="text-teal-600 dark:text-teal-400 hover:underline font-bold">Ver el resultado ahora</button>
+                    </div>
+
+                    <div id="resDone" class="hidden space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <div>
+                                <span id="lblDistCap" class="text-xs text-slate-500 dark:text-slate-400 block">Distancia mínima</span>
+                                <span id="lblDistVal" class="text-2xl font-mono font-extrabold text-slate-900 dark:text-white">0</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 block">Caminos mínimos</span>
+                                <span id="lblCountVal" class="text-2xl font-mono font-extrabold text-slate-900 dark:text-white">0</span>
+                            </div>
+                            <div class="sm:col-span-1">
+                                <p id="lblNoteVal" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed"></p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <select id="lbPaths" size="3" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-xs text-slate-800 dark:text-slate-200 focus:outline-none"></select>
+                            <button id="btnAllPaths" class="mt-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs py-1 px-3 rounded transition hidden">
+                                Ver todos juntos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Panel Lateral (Paso actual, Distancias, Cola, Log) -->
+            <div class="lg:col-span-4 bg-white dark:bg-[#111D24] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col space-y-4">
+                
+                <!-- Paso Actual -->
+                <div>
+                    <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Paso Actual</span>
+                    <div class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 min-h-[70px] border border-slate-100 dark:border-slate-800">
+                        <p id="statusMsg" class="text-xs font-medium leading-relaxed text-slate-800 dark:text-slate-200"></p>
+                    </div>
+                </div>
+
+                <!-- Tabla Distancias -->
+                <div class="flex-1 flex flex-col min-h-[220px]">
+                    <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Distancias</span>
+                    <div class="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+                        <table class="w-full text-left font-mono text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 sticky top-0 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th class="p-2 font-bold">VÉRTICE</th>
+                                    <th class="p-2 font-bold text-right">DIST.</th>
+                                    <th class="p-2 font-bold">VIENE DE</th>
+                                    <th class="p-2 font-bold">ESTADO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="distTableBody" class="divide-y divide-slate-100 dark:divide-slate-800/60"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cola de Prioridad -->
+                <div>
+                    <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
+                        Cola de Prioridad <span class="text-[10px] text-slate-400 font-normal">(distancia, vértice)</span>
+                    </span>
+                    <div id="queueBox" class="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2.5 font-mono text-xs text-slate-700 dark:text-slate-300 min-h-[38px] border border-slate-100 dark:border-slate-800"></div>
+                </div>
+
+                <!-- Registro Log -->
+                <div class="flex-1 flex flex-col min-h-[160px]">
+                    <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Registro</span>
+                    <div id="logBox" class="flex-1 bg-slate-50 dark:bg-[#0D171D] rounded-lg p-2.5 font-mono text-[11px] overflow-y-auto border border-slate-200 dark:border-slate-800 space-y-1"></div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript del Algoritmo y App -->
+    <script>
+        const INF = Infinity;
+
+        // Estructuras de datos para Grafos
+        class Edge {
+            constructor(u, v, w) {
+                this.u = u;
+                this.v = v;
+                this.w = w;
+            }
+        }
+
+        // Genera aristas aleatorias garantizando DAG
+        function randomEdges(n, ties = false) {
+            const wmax = ties ? 5 : 20;
+            const edgesMap = new Map();
+
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    if (Math.random() < 0.35) {
+                        const w = Math.floor(Math.random() * wmax) + 1;
+                        edgesMap.set(`${i}-${j}`, new Edge(i, j, w));
+                    }
+                }
+            }
+            for (let j = 1; j < n; j++) {
+                let hasIn = false;
+                for (let e of edgesMap.values()) {
+                    if (e.v === j) { hasIn = true; break; }
+                }
+                if (!hasIn) {
+                    const p = Math.floor(Math.random() * j);
+                    const w = Math.floor(Math.random() * wmax) + 1;
+                    edgesMap.set(`${p}-${j}`, new Edge(p, j, w));
+                }
+            }
+            return Array.from(edgesMap.values());
+        }
+
+        function reaches(edges, start, goal) {
+            const adj = new Map();
+            edges.forEach(e => {
+                if (!adj.has(e.u)) adj.set(e.u, []);
+                adj.get(e.u).push(e.v);
+            });
+            const seen = new Set();
+            const stack = [start];
+            while (stack.length > 0) {
+                const x = stack.pop();
+                if (x === goal) return true;
+                if (seen.has(x)) continue;
+                seen.add(x);
+                const neighbors = adj.get(x) || [];
+                for (let v of neighbors) stack.push(v);
+            }
+            return false;
+        }
+
+        function enumeratePaths(preds, src, dst, cap = 400) {
+            const result = [];
+            const stack = [dst];
+
+            function walk(v) {
+                if (result.length >= cap) return;
+                if (v === src) {
+                    result.push([...stack].reverse());
+                    return;
+                }
+                const parents = preds[v] || [];
+                for (let p of parents) {
+                    stack.push(p);
+                    walk(p);
+                    stack.pop();
+                    if (result.length >= cap) return;
+                }
+            }
+
+            walk(dst);
+            return result;
+        }
+
+        function countPaths(preds, src, dst) {
+            const memo = new Map();
+            function c(v) {
+                if (v === src) return 1;
+                if (!memo.has(v)) {
+                    const parents = preds[v] || [];
+                    let sum = 0;
+                    for (let p of parents) sum += c(p);
+                    memo.set(v, sum);
+                }
+                return memo.get(v);
+            }
+            return c(dst);
+        }
+
+        class Step {
+            constructor(kind, msg, log, dist, preds, visited, queue, current = null, active = null, outcome = "") {
+                this.kind = kind;
+                this.msg = msg;
+                this.log = log;
+                this.dist = [...dist];
+                this.preds = preds.map(p => [...p]);
+                this.visited = new Set(visited);
+                this.queue = queue.map(q => [...q]);
+                this.current = current;
+                this.active = active;
+                this.outcome = outcome;
+            }
+        }
+
+        function fmt(d) {
+            return d === INF ? "∞" : d.toString();
+        }
+
+        function runDijkstra(n, edges, src, dst) {
+            const out = Array.from({ length: n }, () => []);
+            edges.forEach(e => out[e.u].push(e));
+            out.forEach(lst => lst.sort((a, b) => a.v - b.v));
+
+            const dist = new Array(n).fill(INF);
+            dist[src] = 0;
+            const preds = Array.from({ length: n }, () => []);
+            const visited = new Set();
+            const heap = [[0, src]];
+            const steps = [];
+
+            function snap(kind, msg, log, current = null, active = null, outcome = "") {
+                const validQueue = heap
+                    .filter(([d, v]) => !visited.has(v) && d === dist[v])
+                    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+                steps.push(new Step(kind, msg, log, dist, preds, visited, validQueue, current, active, outcome));
+            }
+
+            snap("init",
+                `Empezamos en el vértice ${src}: su distancia es 0 y la de los demás es ∞. Buscamos el camino más corto hasta el vértice ${dst}.`,
+                `Inicio · origen ${src}, destino ${dst}`
+            );
+
+            while (heap.length > 0) {
+                heap.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+                const [d, u] = heap.shift();
+
+                if (visited.has(u)) continue;
+                visited.add(u);
+
+                const outs = out[u];
+                const extra = outs.length > 0 ? `Ahora se revisan sus ${outs.length} salida${outs.length !== 1 ? 's' : ''}.` : "No tiene salidas.";
+
+                snap("visit",
+                    `Se visita el vértice ${u}, el pendiente más cercano (distancia ${d}). ${extra}`,
+                    `Visitando vértice ${u} (distancia acumulada = ${d})`, u
+                );
+
+                for (let e of outs) {
+                    const v = e.v;
+                    const nd = dist[u] + e.w;
+                    const old = dist[v];
+                    let outcome = "";
+
+                    if (nd < old) {
+                        dist[v] = nd;
+                        preds[v] = [u];
+                        heap.push([nd, v]);
+                        outcome = "better";
+                    } else if (nd === old) {
+                        preds[v].push(u);
+                        outcome = "tie";
+                    } else {
+                        outcome = "worse";
+                    }
+
+                    const head = `${u} → ${v} (peso ${e.w}): ${dist[u]} + ${e.w} = ${nd}`;
+                    let msg = "";
+                    let log = "";
+
+                    if (outcome === "better") {
+                        msg = `${head}, mejor que ${fmt(old)}. Nueva distancia mínima del vértice ${v}.`;
+                        log = `${u} → ${v} (peso ${e.w}): nueva distancia mínima = ${nd}`;
+                    } else if (outcome === "tie") {
+                        msg = `${head}, igual que la distancia actual. Se guarda otro camino mínimo hacia el vértice ${v}.`;
+                        log = `${u} → ${v} (peso ${e.w}): otro camino con la misma distancia (${nd})`;
+                    } else {
+                        msg = `${head}, no mejora la distancia actual (${dist[v]}). Se descarta.`;
+                        log = `${u} → ${v} (peso ${e.w}): no mejora la distancia actual (${dist[v]})`;
+                    }
+                    snap("relax", msg, log, u, [u, v], outcome);
+                }
+            }
+
+            const reachable = dist[dst] !== INF;
+            const paths = reachable ? enumeratePaths(preds, src, dst) : [];
+            const count = reachable ? countPaths(preds, src, dst) : 0;
+            let msg = "";
+            if (reachable) {
+                const plural = count === 1 ? "" : "s";
+                msg = `Fin del algoritmo. La distancia mínima de ${src} a ${dst} es ${dist[dst]}, con ${count} camino${plural} mínimo${plural}.`;
+            } else {
+                msg = `Fin del algoritmo. No existe un camino de ${src} a ${dst}.`;
+            }
+            snap("end", msg, "Fin del algoritmo");
+
+            return { steps, paths, count, distance: dist[dst] };
+        }
+
+        // Layout por Capas
+        function computeLayout(n, edges) {
+            if (edges.length === 0) {
+                const rows = 4;
+                const cols = Math.ceil(n / rows);
+                const pos = [];
+                for (let v = 0; v < n; v++) {
+                    const c = Math.floor(v / rows);
+                    const r = v % rows;
+                    pos.push([cols > 1 ? c / (cols - 1) : 0.5, (r + 1) / (rows + 1)]);
+                }
+                return { pos, layer: new Array(n).fill(0), L: cols, maxcount: rows };
+            }
+
+            const adj = Array.from({ length: n }, () => []);
+            const radj = Array.from({ length: n }, () => []);
+            const deg = new Array(n).fill(0);
+
+            edges.forEach(e => {
+                adj[e.u].push(e.v);
+                radj[e.v].push(e.u);
+                deg[e.v]++;
+            });
+
+            const layer = new Array(n).fill(0);
+            const queue = [];
+            for (let v = 0; v < n; v++) if (deg[v] === 0) queue.push(v);
+
+            while (queue.length > 0) {
+                const u = queue.shift();
+                adj[u].forEach(v => {
+                    layer[v] = Math.max(layer[v], layer[u] + 1);
+                    deg[v]--;
+                    if (deg[v] === 0) queue.push(v);
+                });
+            }
+
+            const L = Math.max(...layer) + 1;
+            const cols = Array.from({ length: L }, () => []);
+            for (let v = 0; v < n; v++) cols[layer[v]].push(v);
+
+            const yf = {};
+            function setY() {
+                cols.forEach(c => {
+                    c.forEach((v, k) => {
+                        yf[v] = (k + 1) / (c.length + 1);
+                    });
+                });
+            }
+
+            function bary(v, nb) {
+                const list = nb[v] || [];
+                if (list.length === 0) return yf[v];
+                const sum = list.reduce((acc, p) => acc + yf[p], 0);
+                return sum / list.length;
+            }
+
+            setY();
+            for (let it = 0; it < 4; it++) {
+                for (let l = 1; l < L; l++) {
+                    cols[l].sort((a, b) => bary(a, radj) - bary(b, radj) || a - b);
+                    setY();
+                }
+                for (let l = L - 2; l >= 0; l--) {
+                    cols[l].sort((a, b) => bary(a, adj) - bary(b, adj) || a - b);
+                    setY();
+                }
+            }
+
+            const pos = new Array(n);
+            cols.forEach((c, l) => {
+                const fx = L > 1 ? l / (L - 1) : 0.5;
+                c.forEach(v => {
+                    pos[v] = [fx, yf[v]];
+                });
+            });
+
+            const maxcount = Math.max(...cols.map(c => c.length));
+            return { pos, layer, L, maxcount };
+        }
+
+        // ==========================================
+        // CONTROLES & APLICACIÓN WEB
+        // ==========================================
+        class App {
+            constructor() {
+                this.n = 9;
+                this.mode = 'random';
+                this.ties = false;
+                this.dark = false;
+                this.edges = [];
+                this.src = 0;
+                this.dst = 8;
+                this.pick = 'src';
+                this.run = null;
+                this.steps = [];
+                this.i = 0;
+                this.playing = false;
+                this.playTimer = null;
+                this.hoverPath = null;
+                this.pinnedPath = null;
+                this.dragNode = null;
+                this.haloOn = true;
+                this.PADX = 46;
+                this.PADY = 42;
+                
+                this.initDOM();
+                this.bindEvents();
+                this.setupTheme();
+                this.regenerateGraph();
+
+                // Animación continua de pulso
+                setInterval(() => {
+                    this.haloOn = !this.haloOn;
+                    this.drawCanvas();
+                }, 550);
+            }
+
+            initDOM() {
+                this.canvas = document.getElementById('graphCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.scaleNodes = document.getElementById('scaleNodes');
+                this.lblNodes = document.getElementById('lblNodes');
+                this.cbSrc = document.getElementById('cbSrc');
+                this.cbDst = document.getElementById('cbDst');
+                this.cbFrom = document.getElementById('cbFrom');
+                this.cbTo = document.getElementById('cbTo');
+                this.spW = document.getElementById('spW');
+                this.lbEdges = document.getElementById('lbEdges');
+                this.manualPanel = document.getElementById('manualPanel');
+                this.randomControls = document.getElementById('randomControls');
+                this.scrubBar = document.getElementById('scrubBar');
+                this.stepCounter = document.getElementById('stepCounter');
+                this.statusMsg = document.getElementById('statusMsg');
+                this.distTableBody = document.getElementById('distTableBody');
+                this.queueBox = document.getElementById('queueBox');
+                this.logBox = document.getElementById('logBox');
+                this.hintLbl = document.getElementById('hintLbl');
+
+                // Buttons
+                this.btnReset = document.getElementById('btnReset');
+                this.btnPrev = document.getElementById('btnPrev');
+                this.btnPlay = document.getElementById('btnPlay');
+                this.btnNext = document.getElementById('btnNext');
+                this.btnNextVertex = document.getElementById('btnNextVertex');
+                this.btnEnd = document.getElementById('btnEnd');
+                this.cbSpeed = document.getElementById('cbSpeed');
+
+                // Path Results
+                this.resWait = document.getElementById('resWait');
+                this.resDone = document.getElementById('resDone');
+                this.lblDistCap = document.getElementById('lblDistCap');
+                this.lblDistVal = document.getElementById('lblDistVal');
+                this.lblCountVal = document.getElementById('lblCountVal');
+                this.lblNoteVal = document.getElementById('lblNoteVal');
+                this.lbPaths = document.getElementById('lbPaths');
+                this.btnAllPaths = document.getElementById('btnAllPaths');
+            }
+
+            bindEvents() {
+                // Theme toggle
+                document.getElementById('themeToggleBtn').addEventListener('click', () => {
+                    this.dark = !this.dark;
+                    this.setupTheme();
+                    this.drawCanvas();
+                });
+
+                // Nodes Slider
+                this.scaleNodes.addEventListener('input', (e) => {
+                    this.n = parseInt(e.target.value);
+                    this.lblNodes.textContent = this.n;
+                    if (this.mode === 'random') {
+                        this.edges = randomEdges(this.n, this.ties);
+                        this.src = 0;
+                        this.dst = this.n - 1;
+                    } else {
+                        this.edges = this.edges.filter(e => e.u < this.n && e.v < this.n);
+                        this.src = this.src < this.n ? this.src : 0;
+                        this.dst = this.dst < this.n ? this.dst : this.n - 1;
+                    }
+                    this.refreshSelects();
+                    this.applyGraph();
+                });
+
+                // Mode Radio
+                document.querySelectorAll('input[name="mode"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        this.mode = e.target.value;
+                        if (this.mode === 'random') {
+                            this.manualPanel.classList.add('hidden');
+                            this.randomControls.classList.remove('hidden');
+                            this.edges = randomEdges(this.n, this.ties);
+                            this.applyGraph();
+                        } else {
+                            this.manualPanel.classList.remove('hidden');
+                            this.randomControls.classList.add('hidden');
+                            this.refreshEdgeList();
+                        }
+                    });
+                });
+
+                // Check Ties
+                document.getElementById('chkTies').addEventListener('change', (e) => {
+                    this.ties = e.target.checked;
+                    if (this.mode === 'random') {
+                        this.edges = randomEdges(this.n, this.ties);
+                        this.applyGraph();
+                    }
+                });
+
+                // Regenerate
+                document.getElementById('btnRegen').addEventListener('click', () => {
+                    this.edges = randomEdges(this.n, this.ties);
+                    this.applyGraph();
+                });
+
+                // Endpoints Selects
+                this.cbSrc.addEventListener('change', (e) => {
+                    this.src = parseInt(e.target.value);
+                    this.startRun();
+                });
+                this.cbDst.addEventListener('change', (e) => {
+                    this.dst = parseInt(e.target.value);
+                    this.startRun();
+                });
+
+                // Manual Add / Remove
+                document.getElementById('btnAddEdge').addEventListener('click', () => this.addEdge());
+                document.getElementById('btnClearEdges').addEventListener('click', () => {
+                    this.edges = [];
+                    this.applyGraph();
+                });
+                document.getElementById('btnRemoveEdge').addEventListener('click', () => this.removeEdge());
+                this.lbEdges.addEventListener('dblclick', () => this.removeEdge());
+
+                // Controls
+                this.btnReset.addEventListener('click', () => { this.stop(); this.go(0); });
+                this.btnPrev.addEventListener('click', () => { this.stop(); this.go(this.i - 1); });
+                this.btnNext.addEventListener('click', () => { this.stop(); this.go(this.i + 1); });
+                this.btnNextVertex.addEventListener('click', () => { this.stop(); this.nextVertex(); });
+                this.btnEnd.addEventListener('click', () => { this.stop(); this.go(this.steps.length - 1); });
+                this.btnPlay.addEventListener('click', () => this.togglePlay());
+                document.getElementById('btnGoResultNow').addEventListener('click', () => { this.stop(); this.go(this.steps.length - 1); });
+
+                this.scrubBar.addEventListener('input', (e) => {
+                    this.stop();
+                    this.go(parseInt(e.target.value));
+                });
+
+                // Path list hover & click
+                this.lbPaths.addEventListener('change', (e) => {
+                    this.pinnedPath = e.target.selectedIndex >= 0 ? e.target.selectedIndex : null;
+                    this.drawCanvas();
+                });
+                this.btnAllPaths.addEventListener('click', () => {
+                    this.lbPaths.selectedIndex = -1;
+                    this.pinnedPath = null;
+                    this.drawCanvas();
+                });
+
+                // Canvas Interactions
+                window.addEventListener('resize', () => this.resizeCanvas());
+                this.canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+                this.canvas.addEventListener('pointermove', (e) => this.onPointerMove(e));
+                this.canvas.addEventListener('pointerup', (e) => this.onPointerUp(e));
+
+                // Keyboard Shortcuts
+                window.addEventListener('keydown', (e) => {
+                    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+                    if (e.key === 'ArrowRight') { this.stop(); this.go(this.i + 1); e.preventDefault(); }
+                    else if (e.key === 'ArrowLeft') { this.stop(); this.go(this.i - 1); e.preventDefault(); }
+                    else if (e.key === 'Home') { this.stop(); this.go(0); e.preventDefault(); }
+                    else if (e.key === 'End') { this.stop(); this.go(this.steps.length - 1); e.preventDefault(); }
+                    else if (e.key === ' ') { this.togglePlay(); e.preventDefault(); }
+                });
+            }
+
+            setupTheme() {
+                const icon = document.getElementById('themeIcon');
+                const text = document.getElementById('themeText');
+                if (this.dark) {
+                    document.documentElement.classList.add('dark');
+                    icon.className = 'fa-solid fa-sun';
+                    text.textContent = 'Modo Claro';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    icon.className = 'fa-solid fa-moon';
+                    text.textContent = 'Modo Oscuro';
+                }
+            }
+
+            refreshSelects() {
+                const vals = Array.from({ length: this.n }, (_, i) => i.toString());
+                [this.cbSrc, this.cbDst, this.cbFrom, this.cbTo].forEach(select => {
+                    const currentVal = select.value;
+                    select.innerHTML = '';
+                    vals.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v;
+                        opt.textContent = v;
+                        select.appendChild(opt);
+                    });
+                    if (vals.includes(currentVal)) select.value = currentVal;
+                });
+                this.cbSrc.value = this.src.toString();
+                this.cbDst.value = this.dst.toString();
+                if (!this.cbFrom.value || parseInt(this.cbFrom.value) >= this.n) this.cbFrom.value = "0";
+                if (!this.cbTo.value || parseInt(this.cbTo.value) >= this.n) this.cbTo.value = Math.min(1, this.n - 1).toString();
+            }
+
+            refreshEdgeList() {
+                this.lbEdges.innerHTML = '';
+                if (this.edges.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.textContent = '(sin conexiones todavía)';
+                    this.lbEdges.appendChild(opt);
+                    return;
+                }
+                this.edges.forEach((e, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = `${e.u} → ${e.v}   peso ${e.w}`;
+                    this.lbEdges.appendChild(opt);
+                });
+            }
+
+            updateHint() {
+                const nxt = this.pick === 'src' ? 'origen' : 'destino';
+                this.hintLbl.textContent = `Clic en un vértice para fijar el ${nxt}. Arrástralo para acomodarlo.`;
+            }
+
+            regenerateGraph() {
+                this.edges = randomEdges(this.n, this.ties);
+                this.refreshSelects();
+                this.applyGraph();
+            }
+
+            applyGraph() {
+                const { pos, layer, L, maxcount } = computeLayout(this.n, this.edges);
+                this.pos = pos;
+                this.layer = layer;
+                this.L = L;
+                this.maxcount = maxcount;
+                this.refreshEdgeList();
+                this.updateHint();
+                this.resizeCanvas();
+                this.startRun();
+            }
+
+            startRun() {
+                this.stop();
+                this.run = runDijkstra(this.n, this.edges, this.src, this.dst);
+                this.steps = this.run.steps;
+                this.i = 0;
+                this.pinnedPath = null;
+                this.paint();
+            }
+
+            addEdge() {
+                const u = parseInt(this.cbFrom.value);
+                const v = parseInt(this.cbTo.value);
+                const w = parseInt(this.spW.value);
+
+                if (isNaN(w) || w < 0) return alert('El peso no puede ser negativo.');
+                if (u === v) return alert('Un vértice no puede conectarse consigo mismo.');
+                if (reaches(this.edges, v, u)) return alert(`La conexión ${u} → ${v} formaría un ciclo en el DAG.`);
+
+                const existingIdx = this.edges.findIndex(e => e.u === u && e.v === v);
+                if (existingIdx >= 0) {
+                    this.edges[existingIdx].w = w;
+                } else {
+                    this.edges.push(new Edge(u, v, w));
+                }
+                this.applyGraph();
+            }
+
+            removeEdge() {
+                const idx = this.lbEdges.selectedIndex;
+                if (idx < 0 || this.edges.length === 0) return;
+                this.edges.splice(idx, 1);
+                this.applyGraph();
+            }
+
+            // Canvas & Geometría
+            resizeCanvas() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.drawCanvas();
+            }
+
+            nodeRadius() {
+                const W = this.canvas.width;
+                const H = this.canvas.height;
+                if (!this.edges || this.edges.length === 0) return 19;
+                const vs = (H - 2 * this.PADY) / (this.maxcount + 1);
+                const dx = this.L > 1 ? (W - 2 * this.PADX) / (this.L - 1) : 1e9;
+                return Math.max(11, Math.min(19, vs * 0.4, dx * 0.42));
+            }
+
+            px(v) {
+                const W = this.canvas.width;
+                const H = this.canvas.height;
+                const [fx, fy] = this.pos[v];
+                return [
+                    this.PADX + fx * (W - 2 * this.PADX),
+                    this.PADY + fy * (H - 2 * this.PADY)
+                ];
+            }
+
+            edgeGeom(e) {
+                const r = this.nodeRadius();
+                const [ax, ay] = this.px(e.u);
+                const [bx, by] = this.px(e.v);
+                const dx = bx - ax;
+                const dy = by - ay;
+                const ln = Math.hypot(dx, dy) || 1.0;
+                const span = Math.abs(this.layer[e.v] - this.layer[e.u]);
+                let bend = 0.0;
+                if (span > 1) {
+                    bend = ((e.u + e.v) % 2 === 0 ? 1 : -1) * Math.min(70, 10 * span + ln * 0.06);
+                }
+                const nx = -dy / ln;
+                const ny = dx / ln;
+                const cx = (ax + bx) / 2 + nx * bend * 2;
+                const cy = (ay + by) / 2 + ny * bend * 2;
+
+                const ux = cx - ax;
+                const uy = cy - ay;
+                const ul = Math.hypot(ux, uy) || 1.0;
+                const sx = ax + (ux / ul) * r;
+                const sy = ay + (uy / ul) * r;
+
+                const vx = bx - cx;
+                const vy = by - cy;
+                const vl = Math.hypot(vx, vy) || 1.0;
+                const ex = bx - (vx / vl) * (r + 2);
+                const ey = by - (vy / vl) * (r + 2);
+
+                const t = 0.35 + ((e.u * 7 + e.v * 13) % 5) * 0.075;
+                const lx = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * ex;
+                const ly = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ey;
+
+                return { sx, sy, cx, cy, ex, ey, lx, ly };
+            }
+
+            nodeAt(x, y) {
+                const r = this.nodeRadius();
+                for (let v = 0; v < this.n; v++) {
+                    const [vx, vy] = this.px(v);
+                    if (Math.hypot(x - vx, y - vy) <= r + 5) return v;
+                }
+                return null;
+            }
+
+            onPointerDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const v = this.nodeAt(x, y);
+                if (v !== null) {
+                    this.dragNode = { v, sx: x, sy: y, moved: false };
+                }
+            }
+
+            onPointerMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (this.dragNode) {
+                    if (!this.dragNode.moved && Math.hypot(x - this.dragNode.sx, y - this.dragNode.sy) > 4) {
+                        this.dragNode.moved = true;
+                    }
+                    if (this.dragNode.moved) {
+                        const W = this.canvas.width;
+                        const H = this.canvas.height;
+                        const fx = Math.min(1.0, Math.max(0.0, (x - this.PADX) / (W - 2 * this.PADX)));
+                        const fy = Math.min(1.0, Math.max(0.0, (y - this.PADY) / (H - 2 * this.PADY)));
+                        this.pos[this.dragNode.v] = [fx, fy];
+                        this.drawCanvas();
+                    }
+                } else {
+                    this.canvas.style.cursor = this.nodeAt(x, y) !== null ? 'pointer' : 'default';
+                }
+            }
+
+            onPointerUp(e) {
+                if (this.dragNode && !this.dragNode.moved) {
+                    this.pickNode(this.dragNode.v);
+                }
+                this.dragNode = null;
+            }
+
+            pickNode(v) {
+                if (this.pick === 'src') {
+                    this.src = v;
+                    this.pick = 'dst';
+                } else {
+                    this.dst = v;
+                    this.pick = 'src';
+                }
+                this.cbSrc.value = this.src.toString();
+                this.cbDst.value = this.dst.toString();
+                this.updateHint();
+                this.startRun();
+            }
+
+            // Renderizado Canvas
+            drawCanvas() {
+                const ctx = this.ctx;
+                const W = this.canvas.width;
+                const H = this.canvas.height;
+
+                ctx.clearRect(0, 0, W, H);
+                if (!this.steps || this.steps.length === 0 || !this.pos) return;
+
+                const dark = this.dark;
+                const r = this.nodeRadius();
+                const s = this.steps[this.i];
+                const final = s.kind === "end";
+                const showPaths = final && this.run.paths.length > 0;
+
+                const keys = new Set();
+                if (showPaths) {
+                    const pathsToHighlight = this.pinnedPath !== null ? [this.run.paths[this.pinnedPath]] : this.run.paths;
+                    pathsToHighlight.forEach(pth => {
+                        for (let k = 0; k < pth.length - 1; k++) {
+                            keys.add(`${pth[k]}-${pth[k + 1]}`);
+                        }
+                    });
+                }
+
+                // Render aristas
+                this.edges.forEach(e => {
+                    const key = `${e.u}-${e.v}`;
+                    let st = 'idle';
+                    if (showPaths) {
+                        st = keys.has(key) ? 'path' : (this.pinnedPath !== null ? 'dim' : 'idle');
+                    } else if (s.active && s.active[0] === e.u && s.active[1] === e.v) {
+                        st = 'active';
+                    } else if (s.preds[e.v] && s.preds[e.v].includes(e.u)) {
+                        st = 'tree';
+                    }
+
+                    const g = this.edgeGeom(e);
+                    
+                    // Colores por estado
+                    let strokeColor = dark ? '#5C6F7A' : '#8E9DA6';
+                    let lineWidth = 1.6;
+
+                    if (st === 'tree') { strokeColor = dark ? '#3CC9BF' : '#0B7A75'; lineWidth = 2.4; }
+                    else if (st === 'active') { strokeColor = '#E08700'; lineWidth = 3.8; }
+                    else if (st === 'path') { strokeColor = '#D1242F'; lineWidth = 4.2; }
+                    else if (st === 'dim') { strokeColor = dark ? '#1E2D37' : '#D1D9DE'; lineWidth = 1.2; }
+
+                    ctx.beginPath();
+                    ctx.moveTo(g.sx, g.sy);
+                    ctx.quadraticCurveTo(g.cx, g.cy, g.ex, g.ey);
+                    ctx.strokeStyle = strokeColor;
+                    ctx.lineWidth = lineWidth;
+                    ctx.stroke();
+
+                    // Flecha
+                    const headlen = 9;
+                    const dx = g.ex - g.cx;
+                    const dy = g.ey - g.cy;
+                    const angle = Math.atan2(dy, dx);
+                    ctx.beginPath();
+                    ctx.moveTo(g.ex, g.ey);
+                    ctx.lineTo(g.ex - headlen * Math.cos(angle - Math.PI / 6), g.ey - headlen * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(g.ex - headlen * Math.cos(angle + Math.PI / 6), g.ey - headlen * Math.sin(angle + Math.PI / 6));
+                    ctx.closePath();
+                    ctx.fillStyle = strokeColor;
+                    ctx.fill();
+
+                    // Etiqueta peso
+                    let tagBg = dark ? '#0D171D' : '#FBFCFC';
+                    let tagBorder = dark ? '#243640' : '#CAD4DA';
+                    let tagFg = dark ? '#E5EDF1' : '#12212A';
+
+                    if (st === 'tree') { tagBorder = dark ? '#3CC9BF' : '#0B7A75'; }
+                    else if (st === 'active') { tagBg = tagBorder = '#E08700'; tagFg = '#FFFFFF'; }
+                    else if (st === 'path') { tagBg = tagBorder = '#D1242F'; tagFg = '#FFFFFF'; }
+
+                    const txt = e.w.toString();
+                    ctx.font = 'bold 10px JetBrains Mono';
+                    const tw = ctx.measureText(txt).width + 10;
+                    ctx.fillStyle = tagBg;
+                    ctx.strokeStyle = tagBorder;
+                    ctx.lineWidth = 1;
+
+                    ctx.beginPath();
+                    ctx.roundRect(g.lx - tw / 2, g.ly - 8, tw, 16, 4);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = tagFg;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(txt, g.lx, g.ly);
+                });
+
+                // Render Nodos
+                for (let v = 0; v < this.n; v++) {
+                    const [x, y] = this.px(v);
+                    let col = dark ? '#6B7A84' : '#8A97A0';
+                    let isCur = false;
+
+                    if (v === s.current) { col = '#E08700'; isCur = true; }
+                    else if (v === this.src) { col = '#2F7BD8'; }
+                    else if (v === this.dst) { col = '#E0553F'; }
+                    else if (s.visited.has(v)) { col = '#2E9E5B'; }
+
+                    // Pulso en nodo actual
+                    if (isCur && this.haloOn) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+                        ctx.strokeStyle = col;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = col;
+                    ctx.fill();
+                    ctx.strokeStyle = dark ? '#111D24' : '#FFFFFF';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // ID Nodo
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = `bold ${Math.max(9, Math.floor(r * 0.65))}px JetBrains Mono`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(v.toString(), x, y);
+
+                    // Distancia acumulada sobre el nodo
+                    const d = s.dist[v];
+                    const distStr = fmt(d);
+                    ctx.font = 'bold 10px JetBrains Mono';
+                    ctx.fillStyle = dark ? '#8DA0AB' : '#566872';
+                    ctx.fillText(distStr, x, y - r - 8);
+
+                    // Roles Origen / Destino
+                    let role = v === this.src && v === this.dst ? 'O·D' : v === this.src ? 'ORIGEN' : v === this.dst ? 'DESTINO' : '';
+                    if (role) {
+                        ctx.font = 'bold 8px JetBrains Mono';
+                        ctx.fillStyle = col;
+                        ctx.fillText(role, x, y + r + 10);
+                    }
+                }
+            }
+
+            // Actualización de Paneles e Interfaz
+            paint() {
+                const s = this.steps[this.i];
+                this.drawCanvas();
+
+                // Mensaje Estado
+                this.statusMsg.textContent = s.msg;
+
+                // Slider & Pasos
+                this.scrubBar.max = Math.max(1, this.steps.length - 1);
+                this.scrubBar.value = this.i;
+                this.stepCounter.textContent = `Paso ${this.i + 1} de ${this.steps.length}`;
+
+                // Tabla Distancias
+                this.distTableBody.innerHTML = '';
+                for (let v = 0; v < this.n; v++) {
+                    const d = s.dist[v];
+                    const tr = document.createElement('tr');
+                    
+                    let bgClass = 'hover:bg-slate-50 dark:hover:bg-slate-800/40';
+                    let stLabel = 'pendiente';
+                    let stColor = 'text-slate-400';
+
+                    if (v === s.current) {
+                        bgClass = 'bg-amber-100/60 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 font-bold';
+                        stLabel = 'actual';
+                        stColor = 'text-amber-600 dark:text-amber-400';
+                    } else if (s.visited.has(v)) {
+                        stLabel = 'visitado';
+                        stColor = 'text-emerald-600 dark:text-emerald-400';
+                    } else if (d !== INF) {
+                        stLabel = 'en cola';
+                        stColor = 'text-teal-600 dark:text-teal-400';
+                    }
+
+                    let role = v === this.src ? ' (origen)' : v === this.dst ? ' (destino)' : '';
+                    const predsStr = s.preds[v] && s.preds[v].length > 0 ? s.preds[v].join(', ') : '—';
+
+                    tr.className = bgClass;
+                    tr.innerHTML = `
+                        <td class="p-2 font-bold">${v}${role}</td>
+                        <td class="p-2 text-right">${fmt(d)}</td>
+                        <td class="p-2">${predsStr}</td>
+                        <td class="p-2 ${stColor}">${stLabel}</td>
+                    `;
+                    this.distTableBody.appendChild(tr);
+                }
+
+                // Cola de Prioridad
+                if (s.queue.length > 0) {
+                    this.queueBox.textContent = s.queue.map(([d, v]) => `(${d}, ${v})`).join('   ');
+                } else {
+                    this.queueBox.textContent = 'La cola está vacía.';
+                }
+
+                // Log acumulativo
+                this.logBox.innerHTML = '';
+                for (let k = 0; k <= this.i; k++) {
+                    const st = this.steps[k];
+                    const div = document.createElement('div');
+                    let colorClass = 'text-slate-500';
+
+                    if (st.kind === 'visit') colorClass = 'text-amber-600 dark:text-amber-400 font-bold';
+                    else if (st.outcome === 'better') colorClass = 'text-teal-600 dark:text-teal-400';
+                    else if (st.outcome === 'tie') colorClass = 'text-blue-600 dark:text-blue-400';
+                    else if (st.kind === 'init' || st.kind === 'end') colorClass = 'text-slate-900 dark:text-white font-bold';
+
+                    div.className = `${colorClass} ${k === this.i ? 'bg-slate-200/60 dark:bg-slate-700/60 p-0.5 rounded' : ''}`;
+                    div.textContent = `• ${st.log}`;
+                    this.logBox.appendChild(div);
+                }
+                this.logBox.scrollTop = this.logBox.scrollHeight;
+
+                // Estado al Finalizar
+                const isFinal = s.kind === "end";
+                if (isFinal) {
+                    this.resWait.classList.add('hidden');
+                    this.resDone.classList.remove('hidden');
+
+                    this.lblDistCap.textContent = `Distancia mínima de ${this.src} a ${this.dst}`;
+                    this.lblDistVal.textContent = this.run.paths.length > 0 ? this.run.distance : 'Ninguna';
+                    this.lblCountVal.textContent = this.run.count;
+
+                    if (this.run.paths.length === 0) {
+                        this.lblNoteVal.textContent = 'Ningún camino llega al destino desde ese origen en este DAG.';
+                        this.lbPaths.classList.add('hidden');
+                        this.btnAllPaths.classList.add('hidden');
+                    } else {
+                        this.lbPaths.classList.remove('hidden');
+                        this.lbPaths.innerHTML = '';
+                        this.run.paths.forEach((pth, idx) => {
+                            const opt = document.createElement('option');
+                            opt.value = idx;
+                            opt.textContent = `Camino ${idx + 1}: ` + pth.join(' → ');
+                            this.lbPaths.appendChild(opt);
+                        });
+                        this.lblNoteVal.textContent = this.run.paths.length > 1 ? 'Haz clic en un camino para resaltarlo individualmente.' : '';
+                        this.btnAllPaths.classList.toggle('hidden', this.run.paths.length <= 1);
+                    }
+                } else {
+                    this.resWait.classList.remove('hidden');
+                    this.resDone.classList.add('hidden');
+                }
+
+                // Habilitar/Deshabilitar botones
+                const atStart = this.i === 0;
+                const atEnd = this.i === this.steps.length - 1;
+
+                this.btnReset.disabled = atStart;
+                this.btnPrev.disabled = atStart;
+                this.btnNext.disabled = atEnd;
+                this.btnNextVertex.disabled = atEnd;
+                this.btnEnd.disabled = atEnd;
+            }
+
+            go(k) {
+                this.i = Math.max(0, Math.min(this.steps.length - 1, k));
+                this.paint();
+            }
+
+            nextVertex() {
+                for (let k = this.i + 1; k < this.steps.length; k++) {
+                    if (this.steps[k].kind === 'visit' || this.steps[k].kind === 'end') {
+                        this.go(k);
+                        return;
+                    }
+                }
+            }
+
+            togglePlay() {
+                if (this.playing) {
+                    this.stop();
+                } else {
+                    if (this.i >= this.steps.length - 1) this.go(0);
+                    this.playing = true;
+                    this.btnPlay.innerHTML = '<i class="fa-solid fa-pause mr-1"></i>Pausar';
+                    this.tick();
+                }
+            }
+
+            stop() {
+                this.playing = false;
+                if (this.playTimer) {
+                    clearTimeout(this.playTimer);
+                    this.playTimer = null;
+                }
+                this.btnPlay.innerHTML = '<i class="fa-solid fa-play mr-1"></i>Reproducir';
+            }
+
+            tick() {
+                if (!this.playing) return;
+                const delays = { 'Lenta': 1400, 'Normal': 800, 'Rápida': 350 };
+                const delay = delays[this.cbSpeed.value] || 800;
+
+                if (this.i < this.steps.length - 1) {
+                    this.go(this.i + 1);
+                    this.playTimer = setTimeout(() => this.tick(), delay);
+                } else {
+                    this.stop();
+                }
+            }
+        }
+
+        // Iniciar la aplicación en window onload
+        window.onload = () => {
+            new App();
+        };
+    </script>
+</body>
+</html>
